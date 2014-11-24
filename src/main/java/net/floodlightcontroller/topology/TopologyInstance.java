@@ -36,6 +36,7 @@ import com.google.common.cache.LoadingCache;
 import net.floodlightcontroller.util.ClusterDFS;
 import net.floodlightcontroller.core.annotations.LogMessageCategory;
 import net.floodlightcontroller.core.annotations.LogMessageDoc;
+import net.floodlightcontroller.openqos.LinkCongestion;
 import net.floodlightcontroller.routing.BroadcastTree;
 import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.routing.Route;
@@ -78,6 +79,7 @@ public class TopologyInstance {
 
     // States for routing
     protected Map<Long, BroadcastTree> destinationRootedTrees;
+    protected Map<Long, BroadcastTree> destinationRootedLaracTrees;
     protected Map<Long, Set<NodePortTuple>> clusterBroadcastNodePorts;
     protected Map<Long, BroadcastTree> clusterBroadcastTrees;
 
@@ -97,13 +99,16 @@ public class TopologyInstance {
     // in the cache.
     private final PathCacheLoader pathCacheLoader = new PathCacheLoader(this);
     protected LoadingCache<RouteId, Route> pathcache;
+    
+    private final PathCacheLoader laracPathCacheLoader = new PathCacheLoader(this);
+    protected LoadingCache<RouteId, Route> laracpathcache;
 
     public TopologyInstance() {
         this.switches = new HashSet<Long>();
         this.switchPorts = new HashMap<Long, Set<Short>>();
         this.switchPortLinks = new HashMap<NodePortTuple, Set<Link>>();
         this.broadcastDomainPorts = new HashSet<NodePortTuple>();
-        this.tunnelPorts = new HashSet<NodePortTuple>();
+        //this. = new HashSet<NodePortTuple>();
         this.blockedPorts = new HashSet<NodePortTuple>();
         this.blockedLinks = new HashSet<Link>();
     }
@@ -150,6 +155,7 @@ public class TopologyInstance {
         clusters = new HashSet<Cluster>();
         switchClusterMap = new HashMap<Long, Cluster>();
         destinationRootedTrees = new HashMap<Long, BroadcastTree>();
+        destinationRootedLaracTrees = new HashMap<Long, BroadcastTree>();
         clusterBroadcastTrees = new HashMap<Long, BroadcastTree>();
         clusterBroadcastNodePorts = new HashMap<Long, Set<NodePortTuple>>();
 
@@ -161,6 +167,15 @@ public class TopologyInstance {
                                     return pathCacheLoader.load(rid);
                                 }
                             });
+        
+        laracpathcache = CacheBuilder.newBuilder().concurrencyLevel(4)
+                .maximumSize(1000L)
+                .build(
+                        new CacheLoader<RouteId, Route>() {
+                            public Route load(RouteId rid) {
+                                return laracPathCacheLoader.load(rid);
+                            }
+                        });
     }
 
     public void compute() {
@@ -185,8 +200,16 @@ public class TopologyInstance {
         // in the cluster + 1, to use as minimum number of
         // clusters as possible.
         calculateBroadcastNodePortsInClusters();
+        
+        // Step 4. Compute constrained path trees in each cluster for 
+        // unicast routing. The trees are rooted at the destination.
+        // Cost for direct links depend on congestion measured at the end-point of each link. 
+        // If congestion detected at end-point then cost of link is increased, 
+        // and dijkstra used to find the new shortest path.
+        // Ignores tunnel links for now
+        calculateConstrainedPathTreeInClusters();
 
-        // Step 4. print topology.
+        // Step 5. print topology.
         printTopology();
     }
 
@@ -198,6 +221,7 @@ public class TopologyInstance {
             log.trace("tunnelPorts: {}", tunnelPorts);
             log.trace("clusters: {}", clusters);
             log.trace("destinationRootedTrees: {}", destinationRootedTrees);
+            log.trace("destinationRootedLaracTrees: {}", destinationRootedLaracTrees);
             log.trace("clusterBroadcastNodePorts: {}", clusterBroadcastNodePorts);
             log.trace("-----------------------------------------------");
         }
@@ -561,6 +585,134 @@ public class TopologyInstance {
         }
     }
 
+    
+    
+    /*
+     * procedure LARAC(src,dst,c,d,Δdelay)
+		pc = Dijkstra(src,dst,c)
+		if delay(pc) ≤ Δdelay then return pc
+		pd = Dijkstra(s,t,d)
+		if d(pd) > Δdelay
+		   then return “There is no solution”
+		repeat
+		    λ = (c(pc) – c(pd)) / (d(pd) – d(pc))
+		    r = Dijkstra(s,t,cλ)
+		   if cλ(r) = cλ(pc) then return pd
+		   else if d(r) ≤ Δdelay then pd = r
+		   else pc = r
+		end repeat
+		end procedure
+
+     * where Dijkstra(s,t,c) returns a c-minimal path between the nodes s and t.
+     * s : source node,
+     * t: destination node
+     * c : desired cost of the path
+     */
+    
+    /*
+     * The method returns the shortest path trees rooted at the destination using Dijkstra algorithm.
+     * It differs from the regular Dijkstra algorithm here, 
+     * only because it adds a congestion measure to the link weights.
+     * The congestion measure is obtained by the LinkCongestion module by polling Queue statistics
+     * from switches.
+     */
+    
+    protected BroadcastTree larac(Cluster c, Long root,
+    		Map<Link, Integer> linkCost,
+    		boolean isDstRooted) {
+    	HashMap<Long, Link> nexthoplinks = new HashMap<Long, Link>();
+    	//HashMap<Long, Long> nexthopnodes = new HashMap<Long, Long>();
+    	HashMap<Long, Integer> cost = new HashMap<Long, Integer>();
+    	HashMap<Link, Integer> congestion = new HashMap<Link, Integer>();
+    	int w;
+
+    	for (Long node: c.links.keySet()) { // for each node in cluster
+    		nexthoplinks.put(node, null);  // intialize nexthop link in shortest path as null
+    		//nexthopnodes.put(node, null);
+    		cost.put(node, MAX_PATH_WEIGHT); // set weight for node to maximum (infinity)
+    	}
+
+    	congestion = LinkCongestion.getCongestion(c); // returns HashMap mapping Link to its congestion
+    	
+    	HashMap<Long, Boolean> seen = new HashMap<Long, Boolean>(); // has a node been seen already?
+    	PriorityQueue<NodeDist> nodeq = new PriorityQueue<NodeDist>(); // queue containing node distances from root(dst)
+    	nodeq.add(new NodeDist(root, 0)); // distance to root is 0
+    	cost.put(root, 0); // cost to get to root is 0
+    	while (nodeq.peek() != null) { // while queue is not empty 
+    		NodeDist n = nodeq.poll(); 
+    		Long cnode = n.getNode();
+    		int cdist = n.getDist();
+    		if (cdist >= MAX_PATH_WEIGHT) break; // validate that cost isn't more than infinity
+    		if (seen.containsKey(cnode)) continue; 
+    		seen.put(cnode, true);
+
+    		for (Link link: c.links.get(cnode)) { // for all links connected to this node in cluster
+    			Long neighbor;
+
+    			if (isDstRooted == true) neighbor = link.getSrc();
+    			else neighbor = link.getDst();
+
+    			// links directed toward cnode will result in this condition
+    			if (neighbor.equals(cnode)) continue;
+
+    			if (seen.containsKey(neighbor)) continue;
+
+    			if (linkCost == null || linkCost.get(link)==null) w = 1;
+    			else w = linkCost.get(link);
+    			// the weight of the link is always 1 in current version of floodlight. 
+    			// because all tunnel_weights are considered null
+    			// add congestion measure to node distance
+
+    			int ndist; // node distance
+    			if (congestion.get(link) != null) {
+    				ndist = cdist + w + congestion.get(link); // add congestion measure to link weight if available
+    			} else {
+    				ndist = cdist + w;
+    			}
+    			if (ndist < cost.get(neighbor)) {
+    				cost.put(neighbor, ndist);
+    				nexthoplinks.put(neighbor, link);
+    				//nexthopnodes.put(neighbor, cnode);
+    				NodeDist ndTemp = new NodeDist(neighbor, ndist);
+    				// Remove an object that's already in there.
+    				// Note that the comparison is based on only the node id,
+    				// and not node id and distance.
+    				nodeq.remove(ndTemp);
+    				// add the current object to the queue.
+    				nodeq.add(ndTemp);
+    			}
+    		}
+    	}
+
+    	BroadcastTree ret = new BroadcastTree(nexthoplinks, cost);
+    	return ret;
+    }
+    
+    // ANKIT
+    protected void calculateConstrainedPathTreeInClusters() {
+        laracpathcache.invalidateAll();
+        destinationRootedLaracTrees.clear();
+
+        Map<Link, Integer> linkCost = new HashMap<Link, Integer>();
+        int tunnel_weight = switchPorts.size() + 1;
+
+        for(NodePortTuple npt: tunnelPorts) {
+            if (switchPortLinks.get(npt) == null) continue;
+            for(Link link: switchPortLinks.get(npt)) {
+                if (link == null) continue;
+                linkCost.put(link, tunnel_weight);
+            }
+        }
+
+        for(Cluster c: clusters) {
+            for (Long node : c.links.keySet()) {
+            	//TODO what params does this method need
+                BroadcastTree larac_tree = larac(c, node, linkCost, true); 
+                destinationRootedLaracTrees.put(node, larac_tree);
+            }
+        }
+    }
+    
     protected void calculateBroadcastTreeInClusters() {
         for(Cluster c: clusters) {
             // c.id is the smallest node that's in the cluster
@@ -674,7 +826,13 @@ public class TopologyInstance {
 
         List<NodePortTuple> nptList;
         NodePortTuple npt;
-        Route r = getRoute(srcId, dstId, 0);
+        Route r ;
+        
+        if (cookie == 1) {
+        	r = getLaracRoute(srcId, dstId, 0);
+        } else {
+        	r = getRoute(srcId, dstId, 0);
+        }
         if (r == null && srcId != dstId) return null;
 
         if (r != null) {
@@ -715,6 +873,26 @@ public class TopologyInstance {
         return result;
     }
 
+    protected Route getLaracRoute(long srcId, long dstId, long cookie) {
+        // Return null route if srcId equals dstId
+        if (srcId == dstId) return null;
+
+
+        RouteId id = new RouteId(srcId, dstId);
+        Route result = null;
+
+        try {
+            result = laracpathcache.get(id);
+        } catch (Exception e) {
+            log.error("{}", e);
+        }
+
+        if (log.isTraceEnabled()) {
+            log.trace("getLaracRoute: {} -> {}", id, result);
+        }
+        return result;
+    }
+    
     protected BroadcastTree getBroadcastTreeForCluster(long clusterId){
         Cluster c = switchClusterMap.get(clusterId);
         if (c == null) return null;

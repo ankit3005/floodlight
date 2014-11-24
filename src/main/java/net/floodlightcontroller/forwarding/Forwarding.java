@@ -164,6 +164,15 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
         OFMatch match = new OFMatch();
         match.loadFromPacket(pi.getPacketData(), pi.getInPort());
 
+        // ANKIT TODO  
+        // if match from packetin has udp port 45880, then get the 'other' route
+        long isMultimediaTraffic = 0;
+        
+        if (match.getTransportDestination() == 45880 && match.getNetworkProtocol() == 0x11) { 
+        	// udp port 45880
+        	isMultimediaTraffic = 1;
+        }
+        
         // Check if we have the location of the destination
         IDevice dstDevice =
                 IDeviceService.fcStore.
@@ -249,7 +258,9 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
                                 routingEngine.getRoute(srcDap.getSwitchDPID(),
                                                        (short)srcDap.getPort(),
                                                        dstDap.getSwitchDPID(),
-                                                       (short)dstDap.getPort(), 0); //cookie = 0, i.e., default route
+                                                       (short)dstDap.getPort(),
+                                                       isMultimediaTraffic); 
+                        //cookie = 0, i.e., default route
                         if (route != null) {
                             if (log.isTraceEnabled()) {
                                 log.trace("pushRoute match={} route={} " +

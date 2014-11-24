@@ -28,3 +28,4 @@ org.sdnplatform.sync.internal.SyncTorture
 net.floodlightcontroller.devicemanager.internal.DefaultEntityClassifier
 net.floodlightcontroller.mactracker.MACTracker
 net.floodlightcontroller.mactracker.MacTrackerThreadStart
+net.floodlightcontroller.openqos.LinkCongestion

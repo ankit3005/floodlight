@@ -296,7 +296,10 @@ public class TopologyManager implements
 
     // To be used for adding any periodic events that's required by topology.
     protected void handleMiscellaneousPeriodicEvents() {
-        return;
+        // ANKIT : add collection of statistics here?
+    	// can store current delay and congestion measure in the TopologyInstance to be
+    	// used by LARAC route calculation method
+    	return;
     }
 
     public boolean updateTopology() {
