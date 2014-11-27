@@ -55,20 +55,18 @@ public class LinkCongestion extends SwitchResourceBase implements
 	}
 
 	private static HashMap<Link, Integer> linkCongestion = new HashMap<Link, Integer>();
+	 
 
-	/**
-	 * Poll stats task
-	 */
-	protected SingletonTask pollStatsTask;
-	protected final int POLL_STATS_TASK_INTERVAL = 2000; // 100 ms.
-	protected final int POLL_STATS_TASK_SIZE = 10; // # of ports per iteration
+    /**
+     * Poll stats task
+     */
+    protected SingletonTask pollStatsTask;
+    protected final int POLL_STATS_TASK_INTERVAL = 2000; // 2000 ms.
+    protected final int POLL_STATS_TASK_SIZE = 10; // # of ports per iteration
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see
-	 * net.floodlightcontroller.core.module.IFloodlightModule#getModuleServices
-	 * ()
+	
+	/* (non-Javadoc)
+	 * @see net.floodlightcontroller.core.module.IFloodlightModule#getModuleServices()
 	 */
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
@@ -238,9 +236,9 @@ public class LinkCongestion extends SwitchResourceBase implements
 			portStats = getPortStats(sw);
 		}
 
-		log.error("Have a list of portStats " + portStats);
+		//log.error("Have a list of portStats " + portStats);
 
-		log.error("ANKIT>> Thread runs!");
+		//log.error("ANKIT>> Thread runs!");
 
 	}
 

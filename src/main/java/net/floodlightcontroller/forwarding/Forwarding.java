@@ -167,10 +167,16 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
         // ANKIT TODO  
         // if match from packetin has udp port 45880, then get the 'other' route
         long isMultimediaTraffic = 0;
-        
-        if (match.getTransportDestination() == 45880 && match.getNetworkProtocol() == 0x11) { 
+        log.error("ANKIT>> doForwardFlow called. transport_dst_port {} transport_dst_src {} protocol {}",
+	        		new Object[] {
+	        		(short) match.getTransportDestination(),
+	        		(short) match.getTransportSource(),
+	        		(short) match.getNetworkProtocol()
+        		});
+        if (match.getTransportDestination() == 45880 && match.getNetworkProtocol() == 0x11 /*udp*/) { 
         	// udp port 45880
         	isMultimediaTraffic = 1;
+        	log.error("ANKIT>> see a multimedia packet in ");
         }
         
         // Check if we have the location of the destination

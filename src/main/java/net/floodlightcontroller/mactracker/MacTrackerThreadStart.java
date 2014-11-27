@@ -49,13 +49,13 @@ public class MacTrackerThreadStart implements IFloodlightModule {
 	public void startUp(FloodlightModuleContext context)
 			throws FloodlightModuleException {
 		// TODO Auto-generated method stub
-		logger.info("MACThreadStart Start - Before Start Call");
-		logger.info("MACThreadStart,floodlightProvider---{}",floodlightProvider);
+		//logger.info("MACThreadStart Start - Before Start Call");
+		//logger.info("MACThreadStart,floodlightProvider---{}",floodlightProvider);
 		//mactracker = new MACTracker(floodlightProvider);
 		mactracker = new MACTracker();
 		mactracker.set_for_thread(floodlightProvider);
-		mactracker.start();
-		logger.info("MACThreadStart Start - After Start Call");
+		//mactracker.start();
+		//logger.info("MACThreadStart Start - After Start Call");
 	}
 
 }
