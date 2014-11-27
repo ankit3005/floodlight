@@ -167,14 +167,23 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
         // ANKIT TODO  
         // if match from packetin has udp port 45880, then get the 'other' route
         long isMultimediaTraffic = 0;
-        log.error("ANKIT>> doForwardFlow called. transport_dst_port {} transport_dst_src {} protocol {}",
-	        		new Object[] {
-	        		(short) match.getTransportDestination(),
-	        		(short) match.getTransportSource(),
-	        		(short) match.getNetworkProtocol()
-        		});
-        if (match.getTransportDestination() == 45880 && match.getNetworkProtocol() == 0x11 /*udp*/) { 
+        
+    /*    log.info("Inside doForwardFlow, getTransportDestination-->"+match.getTransportDestination()
+        		+"match.getNetworkProtocol()--->"+match.getNetworkProtocol()+
+        		"match.getNetworkDestination()---->"+match.getNetworkDestination()+
+        		"match.getNetworkSource()--->"+match.getNetworkSource()
+        		+"match.getTransportSource()--->"+match.getTransportSource()
+        		+"match.getTransportSource() exact--->"+(match.getTransportSource() & 0xffff)+
+        		"getTransportDestination exact --> "+(match.getTransportDestination() & 0xffff));
+      */  
+        
+        log.info("match.getNetworkProtocol()--->"+match.getNetworkProtocol()+
+        		"getTransportDestination exact --> "+(match.getTransportDestination() & 0xffff));
+        
+        int DestinationPort = (int) (match.getTransportDestination() & 0xffff);
+        if (DestinationPort == 45000 && match.getNetworkProtocol() == 0x11) { 
         	// udp port 45880
+        	log.info("Multimedia Traffic");
         	isMultimediaTraffic = 1;
         	log.error("ANKIT>> see a multimedia packet in ");
         }
