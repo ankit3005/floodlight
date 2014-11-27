@@ -19,7 +19,6 @@ import org.slf4j.LoggerFactory;
 
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.IOFSwitch;
-import net.floodlightcontroller.core.OFSwitchBase;
 import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
@@ -27,11 +26,7 @@ import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.core.util.SingletonTask;
 import net.floodlightcontroller.core.web.SwitchResourceBase;
 import net.floodlightcontroller.linkdiscovery.ILinkDiscoveryService;
-import net.floodlightcontroller.linkdiscovery.internal.LinkDiscoveryManager;
-import net.floodlightcontroller.mactracker.MACTracker;
-import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
-import net.floodlightcontroller.topology.Cluster;
 import net.floodlightcontroller.topology.NodePortTuple;
 
 import org.openflow.protocol.OFStatisticsRequest;
@@ -46,16 +41,13 @@ public class LinkCongestion extends SwitchResourceBase implements
 	protected static Logger log;
 
 	protected IFloodlightProviderService floodlightProvider;
-	protected ILinkDiscoveryService linkdiscoveryprovider;
 	protected IThreadPoolService threadPool;
-	public static HashMap<NodePortTuple, Long> portstats = new HashMap<NodePortTuple, Long>();
+	private static HashMap<NodePortTuple, Long> portStats = new HashMap<NodePortTuple, Long>();
 
-	public HashMap<NodePortTuple, Long> getPortstats() {
-		return portstats;
-	}
-
-	private static HashMap<Link, Integer> linkCongestion = new HashMap<Link, Integer>();
-	 
+	
+	public static HashMap<NodePortTuple, Long> getPortStats() {
+		return portStats;
+	} 
 
     /**
      * Poll stats task
@@ -86,10 +78,6 @@ public class LinkCongestion extends SwitchResourceBase implements
 		return null;
 	}
 
-	public static HashMap<Link, Integer> getCongestion(Cluster c) {
-		return linkCongestion;
-	}
-
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -116,8 +104,7 @@ public class LinkCongestion extends SwitchResourceBase implements
 			throws FloodlightModuleException {
 		floodlightProvider = context
 				.getServiceImpl(IFloodlightProviderService.class);
-		// linkdiscoveryprovider =
-		// context.getServiceImpl(ILinkDiscoveryService.class);
+
 		log = LoggerFactory.getLogger(LinkCongestion.class);
 		threadPool = context.getServiceImpl(IThreadPoolService.class);
 	}
@@ -166,9 +153,8 @@ public class LinkCongestion extends SwitchResourceBase implements
 	 *            the output action port we wish to find flows with
 	 * @return a list of OFFlowStatisticsReply objects or essentially flows
 	 */
-	public List<OFPortStatisticsReply> getPortStats(IOFSwitch sw) { // Change what the list returns to your stat type
+	public void computePortStats(IOFSwitch sw) { // Change what the list returns to your stat type
 
-		ArrayList<OFPortStatisticsReply> statsReply = new ArrayList<OFPortStatisticsReply>();
 		List<OFStatistics> values = null;
 		Future<List<OFStatistics>> future;
 		long bytes_rcvd;
@@ -190,14 +176,13 @@ public class LinkCongestion extends SwitchResourceBase implements
 			req.setLengthU(requestLength);
 
 			try {
-				//System.out.println(sw.getStatistics(req));
+			
 				future = sw.queryStatistics(req);
 				values = future.get(10, TimeUnit.SECONDS);
 				
 				if(values != null){
 					for(OFStatistics stat : values){
-						statsReply.add((OFPortStatisticsReply)stat);
-
+						
 						bytes_rcvd = ((OFPortStatisticsReply)stat).getReceiveBytes();
 						/*log.error("ANKIT>>> Retrieved port statistics from switch {} , port number {}, received_bytes {}",
 								new Object[] {sw,
@@ -205,11 +190,10 @@ public class LinkCongestion extends SwitchResourceBase implements
 								((OFPortStatisticsReply)stat).getReceiveBytes()
 						});*/
 						
-						OFSwitchBase switchbase = (OFSwitchBase) sw;
 						//long DataPathId = switchbase.getId();
-						portstats.put(nodeport, ((OFPortStatisticsReply)stat).getReceiveBytes());
+						portStats.put(nodeport, bytes_rcvd);
 						//log.info("Port stats --->" +nodeport.getNodeId()+ "---->"+nodeport.getPortId() + "----->" + 
-						//		((OFPortStatisticsReply)stat).getReceiveBytes());
+						//		bytes_rcvd);
 					}
 					
 				}
@@ -218,22 +202,15 @@ public class LinkCongestion extends SwitchResourceBase implements
 
 			}
 		}
-		return statsReply;
 	}
 
-	private void InsertToNodePortTuple(IOFSwitch sw,
-			Collection<Short> portsOnSwitch) {
-		// TODO Auto-generated method stub
-
-	}
 
 	protected void pollStats() {
 		IOFSwitch sw;
-		List<OFPortStatisticsReply> portStats = null;
 		Set<Long> allSwDpids = floodlightProvider.getAllSwitchDpids();
 		for (Long dpid : allSwDpids) {
 			sw = floodlightProvider.getSwitch(dpid);
-			portStats = getPortStats(sw);
+			computePortStats(sw);
 		}
 
 		//log.error("Have a list of portStats " + portStats);

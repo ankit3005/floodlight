@@ -94,13 +94,25 @@ public class TopologyInstance {
             return ti.buildroute(rid);
         }
     }
+    
+    protected class LaracPathCacheLoader extends CacheLoader<RouteId, Route> {
+        TopologyInstance ti;
+        LaracPathCacheLoader(TopologyInstance ti) {
+            this.ti = ti;
+        }
+
+        @Override
+        public Route load(RouteId rid) {
+            return ti.buildlaracroute(rid);
+        }
+    }
 
     // Path cache loader is defined for loading a path when it not present
     // in the cache.
     private final PathCacheLoader pathCacheLoader = new PathCacheLoader(this);
     protected LoadingCache<RouteId, Route> pathcache;
     
-    private final PathCacheLoader laracPathCacheLoader = new PathCacheLoader(this);
+    private final LaracPathCacheLoader laracPathCacheLoader = new LaracPathCacheLoader(this);
     protected LoadingCache<RouteId, Route> laracpathcache;
 
     public TopologyInstance() {
@@ -620,72 +632,14 @@ public class TopologyInstance {
     protected BroadcastTree larac(Cluster c, Long root,
     		Map<Link, Integer> linkCost,
     		boolean isDstRooted) {
-    	HashMap<Long, Link> nexthoplinks = new HashMap<Long, Link>();
-    	//HashMap<Long, Long> nexthopnodes = new HashMap<Long, Long>();
-    	HashMap<Long, Integer> cost = new HashMap<Long, Integer>();
-    	HashMap<Link, Integer> congestion = new HashMap<Link, Integer>();
-    	int w;
-
-    	for (Long node: c.links.keySet()) { // for each node in cluster
-    		nexthoplinks.put(node, null);  // intialize nexthop link in shortest path as null
-    		//nexthopnodes.put(node, null);
-    		cost.put(node, MAX_PATH_WEIGHT); // set weight for node to maximum (infinity)
-    	}
-
-    	congestion = LinkCongestion.getCongestion(c); // returns HashMap mapping Link to its congestion
-    	
-    	HashMap<Long, Boolean> seen = new HashMap<Long, Boolean>(); // has a node been seen already?
-    	PriorityQueue<NodeDist> nodeq = new PriorityQueue<NodeDist>(); // queue containing node distances from root(dst)
-    	nodeq.add(new NodeDist(root, 0)); // distance to root is 0
-    	cost.put(root, 0); // cost to get to root is 0
-    	while (nodeq.peek() != null) { // while queue is not empty 
-    		NodeDist n = nodeq.poll(); 
-    		Long cnode = n.getNode();
-    		int cdist = n.getDist();
-    		if (cdist >= MAX_PATH_WEIGHT) break; // validate that cost isn't more than infinity
-    		if (seen.containsKey(cnode)) continue; 
-    		seen.put(cnode, true);
-
-    		for (Link link: c.links.get(cnode)) { // for all links connected to this node in cluster
-    			Long neighbor;
-
-    			if (isDstRooted == true) neighbor = link.getSrc();
-    			else neighbor = link.getDst();
-
-    			// links directed toward cnode will result in this condition
-    			if (neighbor.equals(cnode)) continue;
-
-    			if (seen.containsKey(neighbor)) continue;
-
-    			if (linkCost == null || linkCost.get(link)==null) w = 1;
-    			else w = linkCost.get(link);
-    			// the weight of the link is always 1 in current version of floodlight. 
-    			// because all tunnel_weights are considered null
-    			// add congestion measure to node distance
-
-    			int ndist; // node distance
-    			if (congestion.get(link) != null) {
-    				ndist = cdist + w + congestion.get(link); // add congestion measure to link weight if available
-    			} else {
-    				ndist = cdist + w;
-    			}
-    			if (ndist < cost.get(neighbor)) {
-    				cost.put(neighbor, ndist);
-    				nexthoplinks.put(neighbor, link);
-    				//nexthopnodes.put(neighbor, cnode);
-    				NodeDist ndTemp = new NodeDist(neighbor, ndist);
-    				// Remove an object that's already in there.
-    				// Note that the comparison is based on only the node id,
-    				// and not node id and distance.
-    				nodeq.remove(ndTemp);
-    				// add the current object to the queue.
-    				nodeq.add(ndTemp);
-    			}
-    		}
-    	}
-
-    	BroadcastTree ret = new BroadcastTree(nexthoplinks, cost);
-    	return ret;
+    	HashMap<Link, Double> linkbw = TopologyManager.getLink_congestion();
+		for (Link link : linkCost.keySet()) {
+			if (linkbw.get(link) > 10 * 1024) {
+				log.info("Topology Instance---> increased link cost for  "  + link);
+				linkCost.put(link, MAX_LINK_WEIGHT);
+			}
+		}
+    	return dijkstra(c, root, linkCost, isDstRooted);
     }
     
     // ANKIT
@@ -788,6 +742,51 @@ public class TopologyInstance {
             result = new Route(id, switchPorts);
         if (log.isTraceEnabled()) {
             log.trace("buildroute: {}", result);
+        }
+        return result;
+    }
+    
+    protected Route buildlaracroute(RouteId id) {
+        NodePortTuple npt;
+        long srcId = id.getSrc();
+        long dstId = id.getDst();
+
+        LinkedList<NodePortTuple> switchPorts =
+                new LinkedList<NodePortTuple>();
+
+        if (destinationRootedLaracTrees == null) return null;
+        if (destinationRootedLaracTrees.get(dstId) == null) return null;
+
+        Map<Long, Link> nexthoplinks =
+                destinationRootedLaracTrees.get(dstId).getLinks();
+
+        if (!switches.contains(srcId) || !switches.contains(dstId)) {
+            // This is a switch that is not connected to any other switch
+            // hence there was no update for links (and hence it is not
+            // in the network)
+            log.debug("buildlaracroute: Standalone switch: {}", srcId);
+
+            // The only possible non-null path for this case is
+            // if srcId equals dstId --- and that too is an 'empty' path []
+
+        } else if ((nexthoplinks!=null) && (nexthoplinks.get(srcId)!=null)) {
+            while (srcId != dstId) {
+                Link l = nexthoplinks.get(srcId);
+
+                npt = new NodePortTuple(l.getSrc(), l.getSrcPort());
+                switchPorts.addLast(npt);
+                npt = new NodePortTuple(l.getDst(), l.getDstPort());
+                switchPorts.addLast(npt);
+                srcId = nexthoplinks.get(srcId).getDst();
+            }
+        }
+        // else, no path exists, and path equals null
+
+        Route result = null;
+        if (switchPorts != null && !switchPorts.isEmpty())
+            result = new Route(id, switchPorts);
+        if (log.isTraceEnabled()) {
+            log.trace("buildlaracroute: {}", result);
         }
         return result;
     }

@@ -78,7 +78,6 @@ import org.openflow.protocol.OFPort;
 import org.openflow.protocol.OFType;
 import org.openflow.protocol.action.OFAction;
 import org.openflow.protocol.action.OFActionOutput;
-import org.openflow.protocol.statistics.OFPortStatisticsReply;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,6 +94,11 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 			.getLogger(TopologyManager.class);
 
 	public static HashMap<Link, Double> link_congestion = new HashMap<Link, Double>();
+	
+	public static HashMap<Link, Double> getLink_congestion() {
+		return link_congestion;
+	}
+
 	public static HashMap<Link, Long> link_bytes = new HashMap<Link, Long>();
 	public static HashMap<Link, Long> link_bytes_prev = new HashMap<Link, Long>();
 
@@ -165,7 +169,7 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 	 */
 	protected boolean tunnelPortsUpdated;
 
-	protected int TOPOLOGY_COMPUTE_INTERVAL_MS = 10000;
+	protected int TOPOLOGY_COMPUTE_INTERVAL_MS = 1000;
 
 	private IHAListener haListener;
 
@@ -306,7 +310,7 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 		// TopologyInstance to be
 		// used by LARAC route calculation method
 
-		HashMap<NodePortTuple, Long> portstats_tm = LinkCongestion.portstats;
+		HashMap<NodePortTuple, Long> portstats_tm = LinkCongestion.getPortStats();
 		// Set<NodePortTuple> nodeportset = switchPortLinks.keySet();
 
 		if (portstats_tm != null) {
@@ -321,10 +325,10 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 		link_bytes_prev = (HashMap<Link, Long>) link_bytes.clone();
 	//	for(Link link : link_bytes)
 		
-		for(Link link : link_bytes_prev.keySet())
-		{
-		//	log.info("link_bytes_prev,Link--->"+link+"--->"+link_bytes_prev.get(link));
-		}
+//		for(Link link : link_bytes_prev.keySet())
+//		{
+//			log.info("link_bytes_prev,Link--->"+link+"--->"+link_bytes_prev.get(link));
+//		}
 
 		for (NodePortTuple nodeport_links : switchPortLinks.keySet()) {
 			// bytes_rvcd = portstats_tm.get(nodeport_links);
@@ -346,15 +350,15 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 			}
 		}
 		
-		for(Link link : link_bytes.keySet())
-		{
-		//	log.info("link_bytes,Link--->"+link+"--->"+link_bytes.get(link));
-		}
-
-		for(Link link : link_bytes_prev.keySet())
-		{
-			//log.info("link_bytes_prev,Link--->"+link+"--->"+link_bytes_prev.get(link));
-		}
+//		for (Link link : link_bytes.keySet()) {
+//			log.info("link_bytes,Link--->" + link + "--->"
+//					+ link_bytes.get(link));
+//		}
+//
+//		for (Link link : link_bytes_prev.keySet()) {
+//			log.info("link_bytes_prev,Link--->" + link + "--->"
+//					+ link_bytes_prev.get(link));
+//		}
 		
 		long byte_prev, byte_new;
 		for (Link link : link_bytes.keySet()) {
@@ -367,8 +371,7 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 			byte_new = link_bytes.get(link);
 			bw = ((byte_new - byte_prev)*1000) / TOPOLOGY_COMPUTE_INTERVAL_MS;
 			link_congestion.put(link, bw);
-		//	log.info("Topology Manager--->" + byte_new + "-->" + byte_prev
-			//		+ "--->" + bw);
+			log.info("Topology Manager---> bw "  + bw);
 		}
 
 		return;

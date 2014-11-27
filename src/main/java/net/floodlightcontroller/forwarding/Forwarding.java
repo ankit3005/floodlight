@@ -177,6 +177,18 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
         		"getTransportDestination exact --> "+(match.getTransportDestination() & 0xffff));
       */  
         
+//         log.error("ANKIT>> doForwardFlow called. L4:dst_port {} src_port {} protocol {} L3: src_ip {}/{} dst_ip {}/{} L2 src_mac {} dst_mac{}",
+// 	        		new Object[] {
+// 	        		(short) match.getTransportDestination() & 0xffff,
+// 	        		(short) match.getTransportSource() & 0xffff,
+// 	        		(short) match.getNetworkProtocol() & 0xffff,
+// 	        		match.getNetworkSource() & 0xffffffff,
+// 	        		match.getNetworkSourceMaskLen() & 0xff,
+// 	        		match.getNetworkDestination() & 0xffffffff,
+// 	        		match.getNetworkDestinationMaskLen() & 0xff,
+// 	        		match.getDataLayerSource(),
+// 	        		match.getDataLayerDestination()
+//         		});
         log.info("match.getNetworkProtocol()--->"+match.getNetworkProtocol()+
         		"getTransportDestination exact --> "+(match.getTransportDestination() & 0xffff));
         
