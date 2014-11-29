@@ -212,7 +212,8 @@ public abstract class ForwardingBase
                              FloodlightContext cntx,
                              boolean reqeustFlowRemovedNotifn,
                              boolean doFlush,
-                             short   flowModCommand) {
+                             short   flowModCommand,
+                             long isMultimediaTraffic) {
 
         boolean srcSwitchIncluded = false;
         OFFlowMod fm =
@@ -223,15 +224,29 @@ public abstract class ForwardingBase
         List<OFAction> actions = new ArrayList<OFAction>();
         actions.add(action);
 
-        fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
-            .setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
-            .setBufferId(OFPacketOut.BUFFER_ID_NONE)
-            .setCookie(cookie)
-            .setCommand(flowModCommand)
-            .setMatch(match)
-            .setActions(actions)
-            .setLengthU(OFFlowMod.MINIMUM_LENGTH+OFActionOutput.MINIMUM_LENGTH);
-
+        if (isMultimediaTraffic == 1) {
+			fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+					.setHardTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT) // hard timeout = 5 ms
+					.setBufferId(OFPacketOut.BUFFER_ID_NONE)
+					.setCookie(cookie)
+					.setCommand(flowModCommand)
+					.setMatch(match)
+					.setActions(actions)
+					.setLengthU(
+							OFFlowMod.MINIMUM_LENGTH
+									+ OFActionOutput.MINIMUM_LENGTH);
+		} else {
+			fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+					.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
+					.setBufferId(OFPacketOut.BUFFER_ID_NONE)
+					.setCookie(cookie)
+					.setCommand(flowModCommand)
+					.setMatch(match)
+					.setActions(actions)
+					.setLengthU(
+							OFFlowMod.MINIMUM_LENGTH
+									+ OFActionOutput.MINIMUM_LENGTH);
+		}
         List<NodePortTuple> switchPortList = route.getPath();
 
         for (int indx = switchPortList.size()-1; indx > 0; indx -= 2) {

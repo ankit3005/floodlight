@@ -53,7 +53,7 @@ public class LinkCongestion extends SwitchResourceBase implements
      * Poll stats task
      */
     protected SingletonTask pollStatsTask;
-    protected final int POLL_STATS_TASK_INTERVAL = 2000; // 2000 ms.
+    protected final int POLL_STATS_TASK_INTERVAL = 200; // in ms.
     protected final int POLL_STATS_TASK_SIZE = 10; // # of ports per iteration
 
 	

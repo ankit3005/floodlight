@@ -189,15 +189,15 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 // 	        		match.getDataLayerSource(),
 // 	        		match.getDataLayerDestination()
 //         		});
-        log.info("match.getNetworkProtocol()--->"+match.getNetworkProtocol()+
-        		"getTransportDestination exact --> "+(match.getTransportDestination() & 0xffff));
+//        log.info("match.getNetworkProtocol()--->"+match.getNetworkProtocol()+
+//        		"getTransportDestination exact --> "+(match.getTransportDestination() & 0xffff));
         
         int DestinationPort = (int) (match.getTransportDestination() & 0xffff);
         if (DestinationPort == 45000 && match.getNetworkProtocol() == 0x11) { 
         	// udp port 45880
-        	log.info("Multimedia Traffic");
+        	//log.info("Multimedia Traffic");
         	isMultimediaTraffic = 1;
-        	log.error("ANKIT>> see a multimedia packet in ");
+        	//log.error("ANKIT>> see a multimedia packet in ");
         }
         
         // Check if we have the location of the destination
@@ -324,7 +324,8 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 
                             pushRoute(route, match, wildcard_hints, pi, sw.getId(), cookie,
                                       cntx, requestFlowRemovedNotifn, false,
-                                      OFFlowMod.OFPFC_ADD);
+                                      OFFlowMod.OFPFC_ADD, 
+                                      isMultimediaTraffic);
                         }
                     }
                     iSrcDaps++;

@@ -633,11 +633,15 @@ public class TopologyInstance {
     		Map<Link, Integer> linkCost,
     		boolean isDstRooted) {
     	HashMap<Link, Double> linkbw = TopologyManager.getLink_congestion();
-		for (Link link : linkCost.keySet()) {
-			if (linkbw.get(link) > 10 * 1024) {
+  
+    	log.info("Topology Instance---> larac called");
+		for (Link link : linkbw.keySet()) {
+			log.info("Topology Instance---> bw "  + linkbw.get(link));
+			if (linkbw.get(link) > 1 * 1024) {
 				log.info("Topology Instance---> increased link cost for  "  + link);
 				linkCost.put(link, MAX_LINK_WEIGHT);
 			}
+			log.info("Topology Instance---> cost "  + linkCost.get(link));
 		}
     	return dijkstra(c, root, linkCost, isDstRooted);
     }

@@ -169,7 +169,7 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 	 */
 	protected boolean tunnelPortsUpdated;
 
-	protected int TOPOLOGY_COMPUTE_INTERVAL_MS = 1000;
+	protected int TOPOLOGY_COMPUTE_INTERVAL_MS = 3000;
 
 	private IHAListener haListener;
 
@@ -290,9 +290,10 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 		@Override
 		public void run() {
 			try {
-				if (ldUpdates.peek() != null)
-					updateTopology();
 				handleMiscellaneousPeriodicEvents();
+				//if (ldUpdates.peek() != null)
+				updateTopology();
+				
 			} catch (Exception e) {
 				log.error("Error in topology instance task thread", e);
 			} finally {
@@ -313,39 +314,25 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 		HashMap<NodePortTuple, Long> portstats_tm = LinkCongestion.getPortStats();
 		// Set<NodePortTuple> nodeportset = switchPortLinks.keySet();
 
-		if (portstats_tm != null) {
-			for (NodePortTuple np : portstats_tm.keySet()) {
-			//	log.info("portstats_tm" + np.nodeId + "--->" + np.portId
-				//		+ "--->" + portstats_tm.get(np));
-			}
-		}
+//		if (portstats_tm != null) {
+//			for (NodePortTuple np : portstats_tm.keySet()) {
+//				log.info("portstats_tm" + np.nodeId + "--->" + np.portId
+//						+ "--->" + portstats_tm.get(np));
+//			}
+//		}
 
 		long bytes_rvcd = 0;
 		double bw;
 		link_bytes_prev = (HashMap<Link, Long>) link_bytes.clone();
-	//	for(Link link : link_bytes)
 		
-//		for(Link link : link_bytes_prev.keySet())
-//		{
-//			log.info("link_bytes_prev,Link--->"+link+"--->"+link_bytes_prev.get(link));
+//		for (Link link : link_bytes_prev.keySet()) {
+//			log.info("link_bytes_prev,Link--->" + link + "--->"
+//					+ link_bytes_prev.get(link));
 //		}
 
 		for (NodePortTuple nodeport_links : switchPortLinks.keySet()) {
-			// bytes_rvcd = portstats_tm.get(nodeport_links);
-			// for(NodePortTuple nodeport_stats : portstats_tm.keySet())
-			// {
-			// if(nodeport_links.getNodeId() == nodeport_stats.getNodeId() &&
-			// nodeport_links.getPortId() == nodeport_stats.getPortId())
-			// {
 			for (Link link : switchPortLinks.get(nodeport_links)) {
-			//	if (link_bytes.containsKey(link)) {
-				//	log.info("Inside If");
-			//		bytes_rvcd = link_bytes.get(link)
-			//				+ portstats_tm.get(nodeport_links);
-		//		} else {
-				//	log.info("Inside Else");
-					bytes_rvcd = portstats_tm.get(nodeport_links);
-			//	}
+				bytes_rvcd = portstats_tm.get(nodeport_links);
 				link_bytes.put(link, bytes_rvcd);
 			}
 		}
@@ -371,7 +358,7 @@ public class TopologyManager implements IFloodlightModule, ITopologyService,
 			byte_new = link_bytes.get(link);
 			bw = ((byte_new - byte_prev)*1000) / TOPOLOGY_COMPUTE_INTERVAL_MS;
 			link_congestion.put(link, bw);
-			log.info("Topology Manager---> bw "  + bw);
+			//log.info("Topology Manager---> bw "  + bw);
 		}
 
 		return;
