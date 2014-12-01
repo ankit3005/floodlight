@@ -59,7 +59,8 @@ import org.slf4j.LoggerFactory;
 
 @LogMessageCategory("Flow Programming")
 public class Forwarding extends ForwardingBase implements IFloodlightModule {
-    protected static Logger log = LoggerFactory.getLogger(Forwarding.class);
+    private static final int QOS_DEST_PORT = 45000;
+	protected static Logger log = LoggerFactory.getLogger(Forwarding.class);
 
     @Override
     @LogMessageDoc(level="ERROR",
@@ -164,7 +165,8 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
         OFMatch match = new OFMatch();
         match.loadFromPacket(pi.getPacketData(), pi.getInPort());
 
-        // ANKIT TODO  
+        log.info("PacketIn message received - Flow table miss at switch -"+ sw.getId());
+        // ANKIT TODO 
         // if match from packetin has udp port 45880, then get the 'other' route
         long isMultimediaTraffic = 0;
         
@@ -193,9 +195,9 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 //        		"getTransportDestination exact --> "+(match.getTransportDestination() & 0xffff));
         
         int DestinationPort = (int) (match.getTransportDestination() & 0xffff);
-        if (DestinationPort == 45000 && match.getNetworkProtocol() == 0x11) { 
+        if (DestinationPort == QOS_DEST_PORT && match.getNetworkProtocol() == 0x11) { 
         	// udp port 45880
-        	//log.info("Multimedia Traffic");
+        	log.info("Multimedia Traffic Detected on port-"+DestinationPort);
         	isMultimediaTraffic = 1;
         	//log.error("ANKIT>> see a multimedia packet in ");
         }

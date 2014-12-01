@@ -226,7 +226,7 @@ public abstract class ForwardingBase
 
         if (isMultimediaTraffic == 1) {
 			fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
-					.setHardTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT) // hard timeout = 5 ms
+					.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT) // hard timeout = 5 ms
 					.setBufferId(OFPacketOut.BUFFER_ID_NONE)
 					.setCookie(cookie)
 					.setCommand(flowModCommand)
